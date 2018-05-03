@@ -1,5 +1,11 @@
 from math import log
 
+DEBUG = False
+if DEBUG:
+    debug_print = print
+else:
+    debug_print = lambda _: None
+
 def log2(x):
     ''' Returns the base 2 logarithm of `x`. '''
     return log(x, 2)
@@ -55,37 +61,55 @@ class DecisionTree:
     '''
     A classifier. The decision tree induction algorithm is ID3 which recursively greedily maximizes information gain. An attribute only ever appears once on a given path.
     '''
+    class Node:
+        def __init__(self, database, weights, attributes, max_depth=None, depth=0):
+            self.database = database
+            def info_gain(x): return information_gain(database, weights, x)
+            self.best_attribute = max(attributes, key=info_gain)
+            other_attributes = [attr for attr in attributes if attr != self.best_attribute]
 
-    def __init__(self, database, weights):
+            debug_print('  ' * depth + self.best_attribute)
+            if len(other_attributes) == 0 or (max_depth is not None and depth >= max_depth):
+                # For each value of the best attribute, determine the majority class. In
+                # `self.predictions`, map that attribute value to the majority class.
+                self.predictions = {}
+                attr_index = database.ordered_attributes.index(self.best_attribute)
+                for attr_value in range(len(database.attributes[self.best_attribute])):
+                    filtered_indices = [index for index, ex in enumerate(database.data) if ex[attr_index] == attr_value]
+                    filtered_data = [database.data[i] for i in filtered_indices]
+                    filtered_weights = [weights[i] for i in filtered_indices]
+
+                    neg_examples = [ex[-1] == 0 for ex in filtered_data]
+
+                    weighted_neg = inner(neg_examples, filtered_weights)
+                    prediction = int(weighted_neg < (sum(filtered_weights) / 2))
+                    self.predictions[attr_value] = prediction
+                    debug_print('  ' * depth + 'attr_value {} for {} => {}'.format(attr_value, self.best_attribute, prediction))
+            else:
+                self.predictions = {}
+                attr_index = database.ordered_attributes.index(self.best_attribute)
+                for attr_value in range(len(database.attributes[self.best_attribute])):
+                    debug_print('  ' * depth + 'attr_value {} for {}'.format(attr_value, self.best_attribute))
+                    self.predictions[attr_value] = DecisionTree.Node(database, weights, other_attributes, max_depth=max_depth, depth=depth + 1)
+
+        def predict(self, example):
+            # TODO don't store database, just store bestattrindex
+            attr_index = self.database.ordered_attributes.index(self.best_attribute)
+            prediction = self.predictions[example[attr_index]]
+            if isinstance(prediction, DecisionTree.Node):
+                return prediction.predict(example)
+            else:
+                return prediction
+
+    def __init__(self, database, max_depth=None, weights=None):
         ''' Learns/creates the decision stump by selecting the attribute that maximizes information gain. '''
-        self.database = database
-
-        # Select the attribute that maximizes information gain on the training set
-        attributes = database.ordered_attributes[:-1]
-
-        def info_gain(x): return information_gain(database, weights, x)
-        self.best_attribute = max(attributes, key=info_gain)
-
-        # For each value of the best attribute, determine the majority class. In
-        # `self.predictions`, map that attribute value to the majority class.
-        self.predictions = {}
-        attr_index = database.ordered_attributes.index(self.best_attribute)
-        for attr_level in range(len(database.attributes[self.best_attribute])):
-            filtered_indices = [index for index, ex in enumerate(database.data) if ex[attr_index] == attr_level]
-            filtered_data = [database.data[i] for i in filtered_indices]
-            filtered_weights = [weights[i] for i in filtered_indices]
-
-            neg_examples = [ex[-1] == 0 for ex in filtered_data]
-
-            weighted_neg = inner(neg_examples, filtered_weights)
-            self.predictions[attr_level] = int(weighted_neg < (sum(filtered_weights) / 2))
-
-        print(self.best_attribute)
+        if weights is None:
+            weights = [1] * len(database.data)
+        self.root = DecisionTree.Node(database, weights, database.ordered_attributes[:-1], max_depth=max_depth)
 
     def predict(self, example):
         ''' Returns the predicted class of `example` based on the attribute that maximized information gain at training time. '''
-        attr_index = self.database.ordered_attributes.index(self.best_attribute)
-        return self.predictions[example[attr_index]]
+        self.root.predict(example)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -97,6 +121,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     from parse_arff import Database
-    db = Database()
-    db.read_data(args.dataset_path)
-    print(db)
+    database = Database()
+    database.read_data(args.dataset_path)
+    print(database)
+    #
+    # print("training")
+    # tree = DecisionTree(database, max_depth=3)
+    # print("prediction")
+    # tree.predict(database.data[0])
+
+    from evaluation import k_fold
+    print(k_fold(lambda db: DecisionTree(db, max_depth = 5), database, 5))

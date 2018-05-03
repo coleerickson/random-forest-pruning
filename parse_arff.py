@@ -4,7 +4,6 @@ import random
 from copy import copy
 from math import ceil
 
-
 class Database:
     '''Represents the data in an ARFF file.'''
 
