@@ -172,9 +172,9 @@ class Database:
         attr_rep = '\n'.join(['%4d. %s' % (i, attr)
                                 for i, attr in enumerate(self.ordered_attributes)])
 
+        data_head = self.data[:min(5, len(self.data))]
         # The first 5 examples in the database
-        data_rep = '\n    '.join([str(s)
-                                for s in self.data[:min(5, len(self.data))]])
+        data_rep = '\n    '.join([str(s) for s in data_head])
 
         return '''\
 --------------------------------------------------------------------------------
@@ -183,11 +183,11 @@ Summary of database "{}" read from "{}"
 Attributes:
 {}
 
-Example data (first five examples):
+Examples (first {} of {}):
     {}
     ...
 --------------------------------------------------------------------------------\
-'''.format(self.name, self.file_name, attr_rep, data_rep)
+'''.format(self.name, self.file_name, attr_rep, len(data_head), len(self.data), data_rep)
 
 
 if __name__ == "__main__":

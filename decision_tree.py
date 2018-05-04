@@ -1,4 +1,6 @@
+from collections import defaultdict
 from math import log
+from random import sample
 
 DEBUG = False
 if DEBUG:
@@ -10,49 +12,50 @@ def log2(x):
     ''' Returns the base 2 logarithm of `x`. '''
     return log(x, 2)
 
-
 def inner(x, y):
     ''' Returns the inner product (dot product) of vectors `x` and `y`, where `x` and `y` are represented as lists. '''
+
     return sum(xi * yi for (xi, yi) in zip(x, y))
 
+def _get_class_from_example_with_weight(example_with_weight):
+    return example_with_weight[0][-1]
 
-def entropy(examples, weights):
+def entropy(indices, examples, weights):
     '''
     Returns the entropy of `examples`. Entropy is defined in terms of the true class of the example. When counted, each of the `examples` is multiplied by the factor at the corresponding index in `weights`.
     '''
-    negative_examples = [example[-1] == 0 for example in examples]
-    positive_examples = [example[-1] == 1 for example in examples]
-
-    if sum(negative_examples) == 0 or sum(positive_examples) == 0:
-        return 0
-
-    weighted_neg = inner(negative_examples, weights)
-    weighted_pos = inner(positive_examples, weights)
-
     total_weights = sum(weights)
 
-    neg_ratio = float(weighted_neg / total_weights)
-    pos_ratio = 1 - neg_ratio
+    class_weights = defaultdict(lambda: 0)
+    for index in indices:
+        example = examples[index]
+        weight = weights[index]
+        klass = example[-1]
+        class_weights[klass] += weight
 
-    return -neg_ratio * log2(neg_ratio) - pos_ratio * log2(pos_ratio)
+    class_ratios = [klass_weight / total_weights for klass, klass_weight in class_weights.items()]
+
+    entropy_terms = [-ratio * log2(ratio) for ratio in class_ratios]
+    entropy = sum(entropy_terms)
+    return entropy
 
 
 def information_gain(database, weights, attribute):
     '''
     Computes the information gain of `database` by splitting on `attribute`. The examples in the database are reweighted by `weights`.
     '''
-    total_entropy = entropy(database.data, weights)
+    total_entropy = entropy(range(len(database.data)), database.data, weights)
     gain = total_entropy
+
+    # Compute split entropy
     attr_index = database.ordered_attributes.index(attribute)
+    example_indices_by_attr_value = defaultdict(list)
+    for example_index, example in enumerate(database.data):
+        attr_value = example[attr_index]
+        example_indices_by_attr_value[attr_value].append(example_index)
 
-    # Computes split entropy
-    for attr_level in range(len(database.attributes[attribute])):
-        filtered_indices = [index for index, ex in enumerate(database.data) if ex[attr_index] == attr_level]
-
-        filtered_data = [database.data[i] for i in filtered_indices]
-        filtered_weights = [weights[i] for i in filtered_indices]
-
-        gain -= entropy(filtered_data, filtered_weights) * len(filtered_data) / len(database)
+    for attr_value, example_indices in example_indices_by_attr_value.items():
+        gain -= entropy(example_indices, database.data, weights) * len(example_indices) / len(database)
 
     return gain
 
@@ -62,10 +65,10 @@ class DecisionTree:
     A classifier. The decision tree induction algorithm is ID3 which recursively greedily maximizes information gain. An attribute only ever appears once on a given path.
     '''
     class Node:
-        def __init__(self, database, weights, attributes, max_depth=None, depth=0):
+        def __init__(self, database, weights, attributes, max_depth, attribute_selector, depth=1):
             self.database = database
             def info_gain(x): return information_gain(database, weights, x)
-            self.best_attribute = max(attributes, key=info_gain)
+            self.best_attribute = max(attribute_selector(attributes), key=info_gain)
             other_attributes = [attr for attr in attributes if attr != self.best_attribute]
 
             debug_print('  ' * depth + self.best_attribute)
@@ -90,7 +93,7 @@ class DecisionTree:
                 attr_index = database.ordered_attributes.index(self.best_attribute)
                 for attr_value in range(len(database.attributes[self.best_attribute])):
                     debug_print('  ' * depth + 'attr_value {} for {}'.format(attr_value, self.best_attribute))
-                    self.predictions[attr_value] = DecisionTree.Node(database, weights, other_attributes, max_depth=max_depth, depth=depth + 1)
+                    self.predictions[attr_value] = DecisionTree.Node(database, weights, other_attributes, max_depth, attribute_selector, depth=depth + 1)
 
         def predict(self, example):
             # TODO don't store database, just store bestattrindex
@@ -101,15 +104,27 @@ class DecisionTree:
             else:
                 return prediction
 
-    def __init__(self, database, max_depth=None, weights=None):
+    def __init__(self, database, max_depth=None, weights=None, attribute_selector=lambda attributes: attributes):
         ''' Learns/creates the decision stump by selecting the attribute that maximizes information gain. '''
         if weights is None:
             weights = [1] * len(database.data)
-        self.root = DecisionTree.Node(database, weights, database.ordered_attributes[:-1], max_depth=max_depth)
+        self.root = DecisionTree.Node(database, weights, database.ordered_attributes[:-1], max_depth, attribute_selector)
 
     def predict(self, example):
         ''' Returns the predicted class of `example` based on the attribute that maximized information gain at training time. '''
-        self.root.predict(example)
+        return self.root.predict(example)
+
+def RandomTree(database, attribute_subset_size, max_depth=None, weights=None):
+    if attribute_subset_size > len(database.ordered_attributes) - 1:
+        raise Exception("Attempted to create tree with larger random attribute subset than number of attributes. {} > {}".format(attribute_subset_size, len(database.ordered_attributes) - 1))
+    def attribute_selector(attributes):
+        if len(attributes) <= attribute_subset_size:
+            return attributes
+        else:
+            return sample(attributes, attribute_subset_size)
+
+    return DecisionTree(database, max_depth=max_depth, weights=weights, attribute_selector=attribute_selector)
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -124,11 +139,10 @@ if __name__ == '__main__':
     database = Database()
     database.read_data(args.dataset_path)
     print(database)
-    #
-    # print("training")
-    # tree = DecisionTree(database, max_depth=3)
-    # print("prediction")
-    # tree.predict(database.data[0])
+
+    # from cProfile import run as profile
+    # profile("RandomTree(database, 16, max_depth=10)")
+    # RandomTree(database, 5, max_depth=10)
 
     from evaluation import k_fold
-    print(k_fold(lambda db: DecisionTree(db, max_depth = 5), database, 5))
+    print(k_fold(lambda db: RandomTree(db, 5, max_depth=4), database, 10))
