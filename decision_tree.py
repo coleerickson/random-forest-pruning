@@ -105,7 +105,7 @@ class DecisionTree:
                 return prediction
 
     def __init__(self, database, max_depth=None, weights=None, attribute_selector=lambda attributes: attributes):
-        ''' Learns/creates the decision stump by selecting the attribute that maximizes information gain. '''
+        ''' Learns/creates the decision tree by selecting the attribute that maximizes information gain. '''
         if weights is None:
             weights = [1] * len(database.data)
         self.root = DecisionTree.Node(database, weights, database.ordered_attributes[:-1], max_depth, attribute_selector)
@@ -128,7 +128,7 @@ def RandomTree(database, attribute_subset_size, max_depth=None, weights=None):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-    parser = ArgumentParser(description='ParseARFF')
+    parser = ArgumentParser(description='DecisionTree')
 
     parser = ArgumentParser()
     parser.add_argument('dataset_path', help='.arff file name')
