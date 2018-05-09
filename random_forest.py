@@ -9,7 +9,9 @@ class RandomForest:
 
     def __init__(self, database, attribute_subset_size, num_trees, max_depth=None):
         self.trees = []
-        for _ in range(num_trees):
+        print("Training a random forest with {} trees".format(num_trees))
+        for i in range(num_trees):
+            print("{:5d} / {:5d} trees trained".format(i, num_trees))
             self.trees.append(RandomTree(database, attribute_subset_size, max_depth=max_depth))
 
     def predict(self, example):
@@ -38,4 +40,4 @@ if __name__ == '__main__':
     # RandomTree(database, 5, max_depth=10)
 
     from evaluation import k_fold
-    print(k_fold(lambda db: RandomForest(db, 5, 5, max_depth=6), database, 10))
+    print(k_fold(lambda db: RandomForest(db, 1, 20), database, 10))
