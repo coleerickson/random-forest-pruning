@@ -2,6 +2,7 @@ from collections import defaultdict, Counter
 from math import log
 from random import sample
 from pprint import pformat
+from utils import first, mode, log2, inner
 
 DEBUG = False
 if DEBUG:
@@ -9,23 +10,6 @@ if DEBUG:
 else:
     debug_print = lambda _: None
 
-def log2(x):
-    ''' Returns the base 2 logarithm of `x`. '''
-    return log(x, 2)
-
-def inner(x, y):
-    ''' Returns the inner product (dot product) of vectors `x` and `y`, where `x` and `y` are represented as lists. '''
-    result = 0
-    for (xi, yi) in zip(x, y):
-        result += xi * yi
-    return result
-
-def first(l):
-    for x in l:
-        return x
-
-def mode(l):
-    return Counter(l).most_common(1)[0][0]
     
 def _get_class_from_example_with_weight(example_with_weight):
     return example_with_weight[0][-1]
@@ -98,7 +82,11 @@ class DecisionTree:
                 examples = [database.data[i] for i in indices]
                 assert len(examples) != 0
                 self.best_attribute = None
-                self.majority_class = mode([ex[-1] for ex in examples])
+                class_counts = Counter()
+                for weight, example in zip(weights, examples):
+                    klass = example[-1]
+                    class_counts[klass] += weight
+                self.majority_class = mode(class_counts)
                 debug_print('  ' * depth + str(len(indices)) + " Leaf with majority class: " + str(self.majority_class))
                 return
 
@@ -162,7 +150,7 @@ class DecisionTree:
             self.prune_classes[prune_class] += 1
             
             if not self.is_leaf():
-                attr_index = database.ordered_attributes.index(self.best_attribute)
+                attr_index = self.database.ordered_attributes.index(self.best_attribute)
                 attr_value = example[attr_index]
                 child = self.predictions[attr_value]
                 child.prune_classify(example)
