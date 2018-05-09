@@ -38,7 +38,7 @@ def entropy(indices, examples, weights):
     for weight in weights:
         total_weights += weight
 
-    class_weights = defaultdict(lambda: 0)
+    class_weights = defaultdict(lambda: 0) # TODO could use a counter
     for index in indices:
         example = examples[index]
         weight = weights[index]
@@ -85,11 +85,15 @@ class DecisionTree:
         
         def __init__(self, database, indices, weights, attributes, max_depth, attribute_selector, depth=1, parent=None):
             self.database = database
-            self.parent = parent
-            
-            self.total_predictions = 0
-            self.incorrect_predictions = 0
 
+            # This state is useful for pruning
+            self.prune_classes = Counter()
+            for prune_class in database.attributes[database.ordered_attributes[-1]]:
+                self.prune_classes[prune_class] = 0
+            self.parent = parent
+            self.indices = indices            
+
+            # If no attributes remain, then we should create a leaf node and record the majority class of the associated examples
             if len(attributes) == 0:
                 examples = [database.data[i] for i in indices]
                 assert len(examples) != 0
@@ -97,7 +101,8 @@ class DecisionTree:
                 self.majority_class = mode([ex[-1] for ex in examples])
                 debug_print('  ' * depth + str(len(indices)) + " Leaf with majority class: " + str(self.majority_class))
                 return
-            
+
+            # Otherwise we should select the best attribute based on information gain
             def info_gain(x): return information_gain(database, indices, weights, x)
             selected_attrs = attribute_selector(attributes)
             if len(selected_attrs) == 1:
@@ -105,27 +110,9 @@ class DecisionTree:
             else:
                 self.best_attribute = max(selected_attrs, key=info_gain)
             other_attributes = [attr for attr in attributes if attr != self.best_attribute]
-
             debug_print('  ' * depth + str(len(indices)) + ' ' + self.best_attribute)
 
-            # if len(other_attributes) == 0 or (max_depth is not None and depth >= max_depth):
-            #     # For each value of the best attribute, determine the majority class. In
-            #     # `self.predictions`, map that attribute value to the majority class.
-            #     self.predictions = {}
-            #     attr_index = database.ordered_attributes.index(self.best_attribute)
-            #     for attr_value in range(len(database.attributes[self.best_attribute])):
-            #         # filtered_indices = [index for index, ex in enumerate(database.data) if ex[attr_index] == attr_value]
-            #         filtered_indices = [index for index in indices if database.data[index] == attr_value]
-            #         filtered_data = [database.data[i] for i in filtered_indices]
-            #         filtered_weights = [weights[i] for i in filtered_indices]
-                        
-            #         neg_examples = [ex[-1] == 0 for ex in filtered_data]
-                        
-            #         weighted_neg = inner(neg_examples, filtered_weights)
-            #         prediction = int(weighted_neg < (sum(filtered_weights) / 2))
-            #         self.predictions[attr_value] = prediction
-            #         self.desc.append('  ' * depth + 'attr_value {} for {} => {}'.format(attr_value, self.best_attribute, prediction))
-            # else:
+            # Then we should consider each of the attribute values for this best attribute, and recursively create subtrees where appropriate
             self.predictions = {}
             attr_index = database.ordered_attributes.index(self.best_attribute)
             for attr_value in range(len(database.attributes[self.best_attribute])):
@@ -136,6 +123,7 @@ class DecisionTree:
                     self.predictions[attr_value] = DecisionTree.Node(database, indices, weights, [], max_depth, attribute_selector, depth=depth + 1, parent=self)
 
                 else:
+                    # Otherwise recursively create another node based off the examples with this attribute value
                     self.predictions[attr_value] = DecisionTree.Node(database, indices_with_value, weights, other_attributes, max_depth, attribute_selector, depth=depth + 1, parent=self)
 
 
@@ -153,12 +141,10 @@ class DecisionTree:
             else:
                 assert False
 
-            # For pruning, keep track of misclassifications
-            self.total_predictions += 1
-            if prediction != example[-1]:
-                self.incorrect_predictions += 1
-
             return prediction
+
+        def is_leaf(self):
+            return self.best_attribute is None
 
         def leaves(self):
             # If we are at a leaf node, return
@@ -170,8 +156,48 @@ class DecisionTree:
                     leaves.extend(subtree.leaves())
                 return leaves
 
+        def prune_classify(self, example):
+            # TODO use a bestattrindex
+            prune_class = example[-1]
+            self.prune_classes[prune_class] += 1
+            
+            if not self.is_leaf():
+                attr_index = database.ordered_attributes.index(self.best_attribute)
+                attr_value = example[attr_index]
+                child = self.predictions[attr_value]
+                child.prune_classify(example)
+                
         def prune(self):
-            pass
+            ''' Mutates the tree, performing reduced-error pruning. Uses the bottom-up algorithm described in Elomaa and Kaariainen 2001 (see Table 1 and section 2.4), extended to handle non-binary nominal-valued attributes. Returns the number of misclassifications'''            
+            majority_prune_class = self.prune_classes.most_common(1)[0][0]
+
+            total = sum(self.prune_classes.values())
+            correct = self.prune_classes[majority_prune_class]
+            my_error = total - correct
+            if self.is_leaf():
+                return my_error
+            else:
+                children_error = sum(child.prune() for child in self.predictions.values())
+                if children_error < my_error:
+                    return children_error
+                else:
+                    # Prune
+                    del self.predictions
+                    self.best_attribute = None
+
+                    # See section 2 of Elomaa et al.: "Neither is it obvious whether the training set or pruning set is used to decide the labels of the leaves that result from pruning." Here we make the same choice as Elomaa to use the pruning set.
+                    self.majority_class = majority_prune_class
+
+                    correct = self.prune_classes[majority_prune_class]
+                    total = sum(self.prune_classes.values())
+                    return min(correct, total - correct)
+                
+        def size(self):
+            if self.is_leaf():
+                return 1
+            else:
+                return sum(child.size() for child in self.predictions.values())
+                
 
     def __init__(self, database, max_depth=None, weights=None, attribute_selector=lambda attributes: attributes):
         ''' Learns/creates the decision tree by selecting the attribute that maximizes information gain. '''
@@ -184,19 +210,11 @@ class DecisionTree:
         ''' Returns the predicted class of `example` based on the attribute that maximized information gain at training time. '''
         return self.root.predict(example)
 
-    def prune(self, prune_data):
-        ''' Mutates the tree, performing reduced-error pruning. Uses bottom-up algorithm described in Elomaa and Kaariainen. '''
-        # TODO clear misclassification counts
-
-        for example in prune_data:
-            self.predict(example)
-
-        markers = set(self.leaves())
-        while True:
-            markers = set(marker.parent for marker in markers)
-            for marker in markers:
-                pass
-
+    def prune(self, pruning_examples):
+        for example in pruning_examples:
+            self.root.prune_classify(example)
+        self.root.prune()
+     
     def leaves(self):
         return self.root.leaves()
 
@@ -229,13 +247,27 @@ if __name__ == '__main__':
     database.read_data(args.dataset_path)
     print(database)
 
-    # from cProfile import run as profile
-    # profile("RandomTree(database, 16, max_depth=10)")
-    # RandomTree(database, 5, max_depth=10)
-    #
-    from evaluation import k_fold
-    print(k_fold(lambda db: DecisionTree(db, max_depth=6), database, 10))
+ 
+    # from evaluation import k_fold
+    # print(k_fold(lambda db: DecisionTree(db, max_depth=6), database, 10))
 
+    from random import shuffle
+    shuffle(database.data)
+    
+    # 10% of 100% is 10%
+    etc, pruning = first(database.k_fold(6))
+    # 11% of 90% is 10%
+    training, testing = first(etc.k_fold(5))
+    # 80, 10, 10 ! wow ! 
+    
+    from evaluation import evaluate_model
+    t = RandomTree(training, 1)
+    print(t.root.size())
+    evaluate_model(lambda _: t, None, testing)
+    t.prune(pruning.data)
+    print(t.root.size())
+    evaluate_model(lambda _: t, None, testing)
+    
     # for leaf in RandomTree(database, 1, max_depth=4).leaves():
     #     print(leaf)
     # tree = RandomTree(database, 1, max_depth=4)
@@ -243,9 +275,3 @@ if __name__ == '__main__':
     # print(len(leaves))
     # from pprint import pprint
     # pprint([(i, str(leaf)) for i, leaf in enumerate(leaves)])
-
-    # parents = []
-    # for leaf in leaves:
-    # parents.append(leaf.parent)
-    # print(len(parents))
-    # print(len(set(parents)))
