@@ -123,7 +123,8 @@ class Database:
             match = re.match(
                 '\s*([^\s]*|\'[^\']*\')\s*\{(.*)\}$', line[len('@attribute'):])
             if not match:
-                match = re.match('\s*([^\s]*|\'[^\']*\')\s*real$', line[len('@attribute'):].lower())
+#                match = re.match('\s*([^\s]*|\'[^\']*\')\s*real$', line[len('@attribute'):].lower())
+                match = re.match('\s*([^\s]*|\'[^\']*\')\s*(real|numeric)$', line[len('@attribute'):].lower())
                 is_real_valued_attr = True
             assert bool(
                 match), 'Expected regex match on attribute line "%s"' % line
