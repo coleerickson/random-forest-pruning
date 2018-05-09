@@ -1,0 +1,119 @@
+--------------------------------------------------------------------------------
+Summary of database "breast-cancer" read from "datasets/breast-cancer.arff"
+
+Attributes:
+   0. age
+   1. menopause
+   2. tumor-size
+   3. inv-nodes
+   4. node-caps
+   5. deg-malig
+   6. breast
+   7. breast-quad
+   8. 'irradiat'
+   9. 'Class'
+
+Examples (first 5 of 286):
+    [3, 2, 3, 0, 0, 2, 1, 0, 1, 1]
+    [4, 1, 3, 0, 1, 0, 1, 4, 1, 0]
+    [4, 1, 7, 0, 1, 1, 0, 1, 1, 1]
+    [3, 2, 7, 0, 0, 2, 1, 1, 0, 0]
+    [3, 2, 6, 1, 0, 1, 0, 2, 1, 1]
+    ...
+--------------------------------------------------------------------------------
+Wrote profile results to decision_tree.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 0.198162 s
+File: decision_tree.py
+Function: entropy at line 25
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    25                                           @profile
+    26                                           def entropy(indices, examples, weights):
+    27                                               '''
+    28                                               Returns the entropy of `examples`. Entropy is defined in terms of the true class of the example. When counted, each of the `examples` is multiplied by the factor at the corresponding index in `weights`.
+    29                                               '''
+    30       349        195.0      0.6      0.1      total_weights = 0
+    31    100163      52181.0      0.5     26.3      for weight in weights:
+    32     99814      54358.0      0.5     27.4          total_weights += weight
+    33                                           
+    34       349        342.0      1.0      0.2      class_weights = defaultdict(lambda: 0)
+    35     32381      16953.0      0.5      8.6      for index in indices:
+    36     32032      17332.0      0.5      8.7          example = examples[index]
+    37     32032      17125.0      0.5      8.6          weight = weights[index]
+    38     32032      17638.0      0.6      8.9          klass = example[-1]
+    39     32032      19207.0      0.6      9.7          class_weights[klass] += weight
+    40                                           
+    41       349        589.0      1.7      0.3      class_ratios = [klass_weight / total_weights for klass, klass_weight in class_weights.items()]
+    42                                           
+    43       349        875.0      2.5      0.4      entropy_terms = [-ratio * log2(ratio) for ratio in class_ratios]
+    44       349        187.0      0.5      0.1      entropy = 0
+    45      1018        589.0      0.6      0.3      for entropy_term in entropy_terms:
+    46       669        413.0      0.6      0.2          entropy += entropy_term
+    47       349        178.0      0.5      0.1      return entropy
+
+Total time: 0.443648 s
+File: decision_tree.py
+Function: information_gain at line 50
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    50                                           @profile
+    51                                           def information_gain(database, weights, attribute):
+    52                                               '''
+    53                                               Computes the information gain of `database` by splitting on `attribute`. The examples in the database are reweighted by `weights`.
+    54                                               '''
+    55        56     131051.0   2340.2     29.5      total_entropy = entropy(range(len(database.data)), database.data, weights)
+    56        56         19.0      0.3      0.0      gain = total_entropy
+    57                                           
+    58                                               # Compute split entropy
+    59        56         48.0      0.9      0.0      attr_index = database.ordered_attributes.index(attribute)
+    60        56         41.0      0.7      0.0      example_indices_by_attr_value = defaultdict(list)
+    61     16072       5912.0      0.4      1.3      for example_index, example in enumerate(database.data):
+    62     16016       5829.0      0.4      1.3          attr_value = example[attr_index]
+    63     16016       6993.0      0.4      1.6          example_indices_by_attr_value[attr_value].append(example_index)
+    64                                           
+    65       349        155.0      0.4      0.0      for attr_value, example_indices in example_indices_by_attr_value.items():
+    66       293     293579.0   1002.0     66.2          gain -= entropy(example_indices, database.data, weights) * len(example_indices) / len(database)
+    67                                           
+    68        56         21.0      0.4      0.0      return gain
+
+Total time: 0.487714 s
+File: decision_tree.py
+Function: __init__ at line 76
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    76                                                   @profile
+    77                                                   def __init__(self, database, weights, attributes, max_depth, attribute_selector, depth=1):
+    78        56         74.0      1.3      0.0              self.database = database
+    79        56         66.0      1.2      0.0              def info_gain(x): return information_gain(database, weights, x)
+    80        56     462454.0   8258.1     94.8              self.best_attribute = max(attribute_selector(attributes), key=info_gain)
+    81        56        166.0      3.0      0.0              other_attributes = [attr for attr in attributes if attr != self.best_attribute]
+    82                                           
+    83        56        112.0      2.0      0.0              debug_print('  ' * depth + self.best_attribute)
+    84        56         85.0      1.5      0.0              if len(other_attributes) == 0 or (max_depth is not None and depth >= max_depth):
+    85                                                           # For each value of the best attribute, determine the majority class. In
+    86                                                           # `self.predictions`, map that attribute value to the majority class.
+    87        45         56.0      1.2      0.0                  self.predictions = {}
+    88        45         71.0      1.6      0.0                  attr_index = database.ordered_attributes.index(self.best_attribute)
+    89       347        384.0      1.1      0.1                  for attr_value in range(len(database.attributes[self.best_attribute])):
+    90       302      12618.0     41.8      2.6                      filtered_indices = [index for index, ex in enumerate(database.data) if ex[attr_index] == attr_value]
+    91       302       2171.0      7.2      0.4                      filtered_data = [database.data[i] for i in filtered_indices]
+    92       302       1758.0      5.8      0.4                      filtered_weights = [weights[i] for i in filtered_indices]
+    93                                           
+    94       302       2279.0      7.5      0.5                      neg_examples = [ex[-1] == 0 for ex in filtered_data]
+    95                                           
+    96       302       3617.0     12.0      0.7                      weighted_neg = inner(neg_examples, filtered_weights)
+    97       302        525.0      1.7      0.1                      prediction = int(weighted_neg < (sum(filtered_weights) / 2))
+    98       302        345.0      1.1      0.1                      self.predictions[attr_value] = prediction
+    99       302        555.0      1.8      0.1                      debug_print('  ' * depth + 'attr_value {} for {} => {}'.format(attr_value, self.best_attribute, prediction))
+   100                                                       else:
+   101        11         17.0      1.5      0.0                  self.predictions = {}
+   102        11         17.0      1.5      0.0                  attr_index = database.ordered_attributes.index(self.best_attribute)
+   103        66         81.0      1.2      0.0                  for attr_value in range(len(database.attributes[self.best_attribute])):
+   104        55        105.0      1.9      0.0                      debug_print('  ' * depth + 'attr_value {} for {}'.format(attr_value, self.best_attribute))
+   105        55        158.0      2.9      0.0                      self.predictions[attr_value] = DecisionTree.Node(database, weights, other_attributes, max_depth, attribute_selector, depth=depth + 1)
+
