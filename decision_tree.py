@@ -15,7 +15,10 @@ def log2(x):
 
 def inner(x, y):
     ''' Returns the inner product (dot product) of vectors `x` and `y`, where `x` and `y` are represented as lists. '''
-    return sum(xi * yi for (xi, yi) in zip(x, y))
+    result = 0
+    for (xi, yi) in zip(x, y):
+        result += xi * yi
+    return result
 
 def first(l):
     for x in l:
@@ -28,7 +31,9 @@ def entropy(indices, examples, weights):
     '''
     Returns the entropy of `examples`. Entropy is defined in terms of the true class of the example. When counted, each of the `examples` is multiplied by the factor at the corresponding index in `weights`.
     '''
-    total_weights = sum(weights)
+    total_weights = 0
+    for weight in weights:
+        total_weights += weight
 
     class_weights = defaultdict(lambda: 0)
     for index in indices:
@@ -40,7 +45,9 @@ def entropy(indices, examples, weights):
     class_ratios = [klass_weight / total_weights for klass, klass_weight in class_weights.items()]
 
     entropy_terms = [-ratio * log2(ratio) for ratio in class_ratios]
-    entropy = sum(entropy_terms)
+    entropy = 0
+    for entropy_term in entropy_terms:
+        entropy += entropy_term
     return entropy
 
 
@@ -73,7 +80,11 @@ class DecisionTree:
             self.database = database
             self.parent = parent
             def info_gain(x): return information_gain(database, weights, x)
-            self.best_attribute = max(attribute_selector(attributes), key=info_gain)
+            selected_attrs = attribute_selector(attributes)
+            if len(selected_attrs) == 1:
+                self.best_attribute = selected_attrs[0]
+            else:
+                self.best_attribute = max(selected_attrs, key=info_gain)
             other_attributes = [attr for attr in attributes if attr != self.best_attribute]
 
             self.desc = []
