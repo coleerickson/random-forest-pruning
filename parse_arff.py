@@ -50,10 +50,14 @@ class Database:
             # choose (yield) the combo train,test
 
             train = Database()
+            train.file_name = self.file_name
+            train.name = self.name
             train.attributes = self.attributes
             train.ordered_attributes = self.ordered_attributes
 
             test = Database()
+            test.file_name = self.file_name
+            test.name = self.name
             test.attributes = self.attributes
             test.ordered_attributes = self.ordered_attributes
 
