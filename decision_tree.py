@@ -142,6 +142,7 @@ class DecisionTree:
                 return leaves
 
         def prune(self):
+            pass
 
         def __str__(self):
             return self.desc
@@ -167,7 +168,7 @@ class DecisionTree:
         while True:
             markers = set(marker.parent for marker in markers)
             for marker in markers:
-
+                pass
 
     def leaves(self):
         return self.root.leaves()
@@ -210,13 +211,14 @@ if __name__ == '__main__':
 
     # for leaf in RandomTree(database, 1, max_depth=4).leaves():
     #     print(leaf)
-    leaves = set(RandomTree(database, 1, max_depth=4).leaves())
-    print(len(leaves))
-    from pprint import pprint
-    pprint([(i, str(leaf)) for i, leaf in enumerate(leaves)])
+    tree = RandomTree(database, 1, max_depth=4)
+    # leaves = set(tree.leaves())
+    # print(len(leaves))
+    # from pprint import pprint
+    # pprint([(i, str(leaf)) for i, leaf in enumerate(leaves)])
 
-    parents = []
-    for leaf in leaves:
-        parents.append(leaf.parent)
-    print(len(parents))
-    print(len(set(parents)))
+    # parents = []
+    # for leaf in leaves:
+    # parents.append(leaf.parent)
+    # print(len(parents))
+    # print(len(set(parents)))
