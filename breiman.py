@@ -1,4 +1,4 @@
-''' Module for Breiman's experiments '''
+''' Module for Breiman's experiments using scikit-learn '''
 from glob import glob
 from parse_arff import Database
 from math import log

@@ -2,13 +2,7 @@ from collections import defaultdict, Counter
 from math import log
 from random import sample
 from pprint import pformat
-from utils import first, mode, log2, inner
-
-DEBUG = False
-if DEBUG:
-    debug_print = print
-else:
-    debug_print = lambda _: None
+from utils import first, mode, log2, inner, debug_print
 
     
 def _get_class_from_example_with_weight(example_with_weight):

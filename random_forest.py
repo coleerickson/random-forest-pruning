@@ -8,9 +8,9 @@ class RandomForest:
 
     def __init__(self, database, attribute_subset_size, num_trees, max_depth=None):
         self.trees = []
-        print("Training a random forest with {} trees".format(num_trees))
+        # print("Training a random forest with {} trees".format(num_trees))
         for i in range(num_trees):
-            print("{:5d} / {:5d} trees trained".format(i, num_trees))
+            # debug_print("{:5d} / {:5d} trees trained".format(i, num_trees))
 
             num_examples = len(database.data)
             example_indices = list(range(num_examples))
