@@ -1,14 +1,13 @@
-''' Module for Breiman's experiments using scikit-learn '''
+'''
+This module replicates Breiman's experiments using scikit-learn.
+It looks for data in the EnsembleData subdirectory.
+'''
 from glob import glob
 from parse_arff import Database
 from math import log
 from utils import log2
-#from random_forest import RandomForest
-#from evaluation import evaluate_model
 from sklearn.ensemble import RandomForestClassifier
 from functools import partial
-
-
 
 def single_evaluation(dataset_fn, impurity_split):
     print('Performing a single evaluation of Breiman\'s accuracy experiments')
@@ -50,10 +49,6 @@ if __name__ == '__main__':
     datasets = glob('./EnsembleData/*.arff')
     for dataset_fn in datasets:
         print(dataset_fn)
-#        all_errors = []
-#        for e in range(10):
-#            print(e)
-#            all_errors.append(evaluate_dataset(dataset_fn,e/60))
 
         all_errors = [evaluate_dataset(dataset_fn,e/60) for e in range(10)]
         for index,errors in enumerate(all_errors):

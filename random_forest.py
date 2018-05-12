@@ -7,10 +7,11 @@ class RandomForest:
     ''' An ensemble of random trees. '''
 
     def __init__(self, database, attribute_subset_size, num_trees, max_depth=None):
+        ''' Trains `num_trees` random trees and bootstraps the dataset for each tree. '''
         self.trees = []
         # print("Training a random forest with {} trees".format(num_trees))
         for i in range(num_trees):
-            # debug_print("{:5d} / {:5d} trees trained".format(i, num_trees))
+            # print("{:5d} / {:5d} trees trained".format(i, num_trees))
 
             num_examples = len(database.data)
             example_indices = list(range(num_examples))
@@ -18,19 +19,17 @@ class RandomForest:
             weights = [0] * num_examples
             for i in sampled_indices:
                 weights[i] += 1
-            
+
             self.trees.append(RandomTree(database, attribute_subset_size, max_depth=max_depth, weights=weights))
 
     def predict(self, example):
-        ''' Gets each tree's prediction for the example; returns the most commonly occurring one. '''
+        ''' Gets each tree's prediction for the example; returns the mode. '''
         return mode(tree.predict(example) for tree in self.trees)
 
     def prune(self, pruning_examples):
+        ''' Prunes every tree in the forest using the same pruning set. '''
         for tree in self.trees:
             tree.prune(pruning_examples)
-
-    def __str__(self):
-        return "TODO" # TODO
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -46,24 +45,17 @@ if __name__ == '__main__':
     database.read_data(args.dataset_path)
     print(database)
 
-    # from cProfile import run as profile
-    # profile("RandomTree(database, 16, max_depth=10)")
-    # RandomTree(database, 5, max_depth=10)
 
     from random import shuffle
     shuffle(database.data)
-    
-    # 10% of 100% is 10%
+
+    # Split the dataset into pruning, training, and testing
     etc, pruning = first(database.k_fold(6))
-    # 11% of 90% is 10%
     training, testing = first(etc.k_fold(5))
-    # 80, 10, 10 ! wow ! 
-    
+
+    # Evaluate the forest before and after pruning
     from evaluation import evaluate_model
     f = RandomForest(training, 1, 10)
     evaluate_model(lambda _: f, None, testing)
     f.prune(pruning.data)
     evaluate_model(lambda _: f, None, testing)
-    
-    # from evaluation import k_fold
-    # print(k_fold(lambda db: RandomForest(db, 1, 20), database, 10))

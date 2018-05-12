@@ -1,12 +1,6 @@
 from collections import Counter
 from math import log
 
-DEBUG = False
-if DEBUG:
-    debug_print = print
-else:
-    debug_print = lambda _: None
-
 def first(l):
     for x in l:
         return x

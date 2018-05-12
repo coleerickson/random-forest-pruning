@@ -6,6 +6,30 @@ Included in this repository are an implementation of random forests and the code
 
 ## Running
 
+To try training different decision trees, run, for example:
+
+```sh
+$ python3 decision_tree.py --random 2 --max_depth 5 --verbose BreimanDatasets/vote.noUnknowns.arff
+```
+
+The command line arguments are documented below.
+
+```
+usage: decision_tree.py [-h] [-r RANDOM] [-d MAX_DEPTH] [-v] dataset_path
+
+positional arguments:
+  dataset_path          .arff file name
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r RANDOM, --random RANDOM
+                        the random attribute subset size (F); if not supplied,
+                        then the tree is not random
+  -d MAX_DEPTH, --max_depth MAX_DEPTH
+                        an upper bound on the depth of the tree
+  -v, --verbose         if supplied, prints the decision tree during induction
+```
+
 To run our experiment, run the following in bash:
 
 ```sh
@@ -27,6 +51,10 @@ Several of our modules could be used for further research. In the `decision_tree
 Useful functions for evaluating models are available in the `evaluation` module.
 
 Beware training trees to maximum depth and considering all the attributes at each node. Large trees and high-dimensional data can dramatically increase runtime, which is dominated by the information gain (and therefore also entropy) computations. We have done our best to optimize these computations, but anyone interested in performance should look elsewhere for an efficient implementation--or tackle the task of using FFI to call into C for these computations.
+
+## Miscellany
+
+The `why-its-slow.txt` and `why-its-still-slow.txt` files are profiler output that demonstrate that the bottleneck in the application is entropy calculations.
 
 ## What's Missing
 
